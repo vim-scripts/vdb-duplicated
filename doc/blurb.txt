@@ -1,0 +1,215 @@
+The Vim Debugger Plug In
+
+Brief Description:
+ - This is a plug in for vim designed to integrate basic debugging features into
+   Vim for any language that has a text based, line oriented, run in the console
+   debugger capable of separating the debugged processes output from that of the
+   debugger itself, such that the debugged processes output can be piped
+   separately, and doesn't appear on the controlling tty.
+ - It's written as a single vim script with the majority of the work being done
+   in python to be run by vim's python interpreter
+ - Once the plugin is loaded, a debug session can be started with one of a
+   variety of hotkeys from normal mode (or any mode, up to you, as you can
+   change the mappings as you please), and thence perform basic debugging steps,
+   such as step over/into, set (conditional) breakpoints, watch
+   expressions/variables etc... and have the results displayed in your vim
+   session, by highlighted bars for breakpoints, execution line, and error
+   points, whilst other information is displayed within vim windows
+ - perfect (well, at the moment, adequate) for debugging over ssh...
+ - if you need to use more powerful/unimplemented commands of the underlying
+   debugger, simply pop up the debugger console, and type them in there
+   interactively
+
+Quick Start User Guide:
+ - all of the default keymaps work only in normal mode!
+
+F2: open debugger console window, or jump to it if it's already open, place
+cursor where it was previously, or at end of output, in insert mode, ready to
+send commands. Just press ENTER (<CR>) to execute the command. Note that while
+in insert mode in this window, you are not free to move the cursor beyond the
+line being edited, i.e. insert mode acts like a very simple shell line editor
+[Starts a session if one is not already started]
+
+F3: opens the stack trace window, not really implemented properly yet
+
+F4: run until the line containing the cursor is reached, or an error occurs, or
+the program finishes, whichever comes first [Starts a session if one is not
+already started]
+
+F5: toggle break point current source line
+
+Shift-F5: edit/clear the conditional expression of the breakpoint on the current
+source line
+
+F6: When in the source window, add a new watch variable/expression
+
+Shift-F6, Up: When in the watch window, move the watch currently under the
+cursor, up by one line in the list of watches
+
+Shift-F6, Down: When in the watch window, move the watch currently under the
+cursor, down by one line in the list of watches
+
+Shift-F6: Deletes the watch currently under the cursor, if in the Watch Window
+
+F7: Step Into the current source line [Starts a session if one is not already
+started]
+
+F8: Step Over the current source line [Starts a session if one is not already
+started]
+
+F9: continue until the current stack frame is exited [Starts a session if one is
+not already started]
+
+Shift-F9: Continue until a breakpoint is reached or the program finishes [Starts
+a session if one is not already started]
+
+F10: Kill the current debug session, closes the debugger process, and terminates
+the debugged process. Breakpoints are kept for when another session is started,
+as are watches.
+
+Shift-F10: Kill the current debug session, and prompt for specification of a new
+program to debug, and/or new command line arguments to ass to process to be
+debugged. Starts a new session immediately
+
+Any of the commands that start a new session for the first time within your vim
+session, will prompt you for the name of the file to be debugged, i.e. the name
+you would normally pass to the back-end debugger (the executable in the case of
+non-scripted languages), and will then prompt you for any command line
+parameters you may wish to specify (as a single string)
+
+It is generally safe to close any unwanted windows with the exception of the
+main source window during a debug session. Also, if things do go screwy on you,
+it is generally safe to kill the current debug session, and start over. Hours of
+debugging this have made me make it very good at cleaning up after itself ;)
+
+Requirements:
+ - Vim, of course, compiled with +python. Below is the output of :ver as I use
+   vim on a daily basis, and thus for which I have coded this plugin
+ - Python (I'm using ver 2.4.3) and the pdb.py debugger distributed therewith.
+   I'm fairly certain version 2.3.x should work too, but I might be wrong, lemme
+   know if it works or doesn't on your versions
+ - a system that supports python's pty.fork(), there is no point to implementing
+   a piped version with subprocess/os.popen* because it only hangs vim when the
+   debugged program requires input from the controlling terminal, i.e. there
+   won't be a windows version anytime soon
+
+++++ output of :ver ++++
+VIM - Vi IMproved 7.0 (2006 May 7, compiled Oct 26 2006 19:19:59)
+Included patches: 1-17
+Modified by Gentoo-7.0.17
+Compiled by sirlark@hephaestus
+Huge version without GUI.  Features included (+) or not (-):
++arabic +autocmd -balloon_eval -browse ++builtin_terms +byte_offset +cindent
+-clientserver -clipboard +cmdline_compl +cmdline_hist +cmdline_info +comments
++cryptv +cscope +cursorshape +dialog_con +diff +digraphs -dnd -ebcdic
++emacs_tags +eval +ex_extra +extra_search +farsi +file_in_path +find_in_path
++folding -footer +fork() +gettext -hangul_input +iconv +insert_expand +jumplist
++keymap +langmap +libcall +linebreak +lispindent +listcmds +localmap +menu
++mksession +modify_fname +mouse -mouseshape +mouse_dec +mouse_gpm -mouse_jsbterm
++mouse_netterm +mouse_xterm +multi_byte +multi_lang +mzscheme -netbeans_intg
+-osfiletype +path_extra +perl +postscript +printer +profile +python +quickfix
++reltime +rightleft -ruby +scrollbind +signs +smartindent -sniff +statusline
+-sun_workshop +syntax +tag_binary +tag_old_static -tag_any_white -tcl +terminfo
++termresponse +textobjects +title -toolbar +user_commands +vertsplit
++virtualedit +visual +visualextra +viminfo +vreplace +wildignore +wildmenu
++windows +writebackup -X11 -xfontset -xim -xsmp -xterm_clipboard -xterm_save
+
+system vimrc file: "/etc/vim/vimrc" user vimrc file: "$HOME/.vimrc" user exrc
+file: "$HOME/.exrc" fall-back for $VIM: "/usr/share/vim" Compilation:
+i686-pc-linux-gnu-gcc -c -I. -Iproto -DHAVE_CONFIG_H -march=pentium4m -O2 -pipe
+-I/usr/include -DMZSCHEME_COLLECTS=/usr/collects -pipe
+-Wdeclaration-after-statement -D_LARGE FILE_SOURCE -D_FILE_OFFSET_BITS=64
+-I/usr/include/gdbm -I/usr/lib/perl5/5.8.8/i686-linux/CORE
+-I/usr/include/python2.4 -pthread
+
+Linking: i686-pc-linux-gnu-gcc -rdynamic -L/usr/local/lib -o vim -lncurses -lacl
+-lgpm /usr/lib/libmzgc.a /usr/lib/libmzscheme.a -rdynamic -L/usr/local/lib
+/usr/lib/perl5/5.8.8/i686-linux/ auto/DynaLoader/DynaLoader.a
+-L/usr/lib/perl5/5.8.8/i686-linux/CORE -lperl -lutil -lc
+-L/usr/lib/python2.4/config -lpython2.4 -lpthread -lutil -lm -Xlinker
+-export-dynamic
+
+++++ end output ++++
+
+Caveats
+ - I have been testing this on my system alone, which is currently running
+   Gentoo-Linux kernel-2.6.x, in xterm and standard console in vesa framebuffer
+   mode. I haven't tested it on any other systems yet.
+ - I fully expect there to be a lot of missing/buggy functionality relating to
+   different terminals being used
+ - I can't think of any reason why debugging a program running a GUI shouldn't
+   work, but since I haven't tried yet, I really have no idea. The real catch is
+   that debugged process output is captured and but into a vim buffer, which is
+   a VERY limiting way to emulate a terminal as far as output is concerned. This
+   means basically that ncurses/slang/ANSI escape sequences and other weird
+   stuff may look very screwy or may not even work at all (more likely to not
+   work at all and corrupt vim's terminal) Eventually, I might in fact try to
+   emulate something approximating a proper terminal, but that's a while off,
+   starting AFTER I learn all about that terminal control code stuff
+ - This may be a little slow at the moment, because of the timing I have
+   implemented within the VDBSession.readline and VDBSession.write* methods.
+   This is a total hack, and I'm really not sure if it will work on
+   slower/faster systems, over a network, etc... if anyone can think of a way
+   round this, I'm sure I can come up with glowing praises for you in the
+   acknowledgements list.
+ - I work in Vim using a maximised terminal, so I have plenty of terminal real
+   estate to work with. Whilst I have tried to keep the 80x25 terminals in mind
+   whilst laying stuff out, there's a heel of a lot of windows, and ultimately I
+   wouldn't recommend using VDB in anything less than 100x50
+
+Still To Do (I'm getting there, I'm getting there):
+ - put up a proper project page, since this is fast getting beyond the scope of
+   a simple vim script
+ - cater to multiple interfaces properly, instead of the horrible botched mix
+   between hard coded PDB commands and dictionary based interface expansions
+ - comment the code, put in docstrings, document etc...
+ - get input to the running process working nicely, currently a mammoth task,
+   involving way more than I know about terminal control codes, emulations, and
+   other tedious shit. Right now, it only works in a line oriented manner,
+   although to send single characters you can use :python VDBSession.write("x"),
+   where x is the character or string you wish to send...
+ - implement GNU readline like command history for debugger console
+
+Licensing and Limitations:
+ - this is still alpha software, seriously, ALPHA, and has been written to serve
+   my own purposes. Thus, this software is not guaranteed to do anything useful,
+   helpful, or remotely similar to the specifications contained herein, nor can
+   I be held responsible for any damages or losses, financial, material,
+   emotional or otherwise, occurring to you when using this software. It hasn't
+   done anything nasty on my machine yet ...
+ - this software is being released under the GPL v2 or higher
+
+Acknowledgements and Credits
+ - James Dominy (sirlark), the primary author of the plug in (actually, currently
+   the only one)
+ - Andrew Dalke, for answering lots of tedious questions about python, and for
+   proposing the method of output separation used for the PDB interface
+ - Bram Moolenar, and everyone else who helps to develop vim, thanks for such an
+   AWESOME piece of software, in a word, it ROCKS!
+ - #vim and everyone on it who has ever put up with more of those tedious
+   questions, generally of the nature "I'm trying to do this thing (which no
+   sane person would ever want to do in Vim) in vim and ...", you know who you
+   are, and once again, thanks, you've been invaluable! And I'm sorry for all
+   those times I bothered you when an extra 5 minutes of trawling through :help
+   would have answered the question anyway...
+ - #python and everyone on it who has similarly put up with persistent questions
+   about how to do things the 'bad' way, instead of simply using 'xyz' module...
+   I swear it's all because vim is picky, not out of personal choice ;)
+
+Bugs (Cause there are going to be many)
+ - report bugs to vimdebugger _at_ gmail _dot_ com
+   - start the subject line with [BUG]
+   - please try to reproduce the bug at least once with debug output turned on
+     (assuming it doesn't wipe your harddrive, and bring the internet down with
+     it ;), and attach the debug output in your email
+      - ':python VDBSetDebugFile()' will initiate capture for the rest of the
+	current debug session, and all further ones, as long as vim is running
+   - please list the output of uname -a, and :ver from within Vim
+   - if it's not too much trouble, and the files in question are not
+     particularly sensitive, send files being debugged, so that I can have a
+     look at how the bug came about in a environment as close to the original
+     one as possible... promise I won't rip your code off ... really!
+
+Comments, Feature Requests, Criticism, and Warm Fuzzy Things
+ - also send to vimdebugger _at_ gmail _dot_ com putting [COMMENT], [FEAT REQ],
+   [CRIT], or [WFT] at the beginning of the subject line as appropriate
